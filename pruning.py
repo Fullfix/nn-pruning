@@ -49,16 +49,36 @@ class BaseUnstructuredPruner(ABC):
             calib_dataloader: DataLoader | None = None,
             pbar: bool = True
     ) -> None:
+        """
+        Base method for unstructured pruning
+        :param model: HF model to prune in-place
+        :param sparsity: target sparsity. Float in range [0, 1] means fraction of neurons to prune within linear layers. 'M:N' string means semi-structured pruning.
+        :param calib_dataloader: dataloader for calibration data. Required only for activation aware methods.
+        :param pbar: enable progress bar
+        """
         pass
 
 
 class BaseAgnosticUnstructuredPruner(BaseUnstructuredPruner):
     @abstractmethod
     def prune_linear_unstruct(self, W: torch.Tensor, k: int) -> torch.Tensor:
+        """
+        Base method for unstructured pruning
+        :param W: linear weights to prune, shape (D_out, D_in)
+        :param k: pruning number.
+        :return: pruned linear weights. Must have more or equal than k zero elements.
+        """
         pass
 
     @abstractmethod
     def prune_linear_nm(self, W: torch.Tensor, n: int, m: int) -> torch.Tensor:
+        """
+        Base method for N:M pruning
+        :param W: linear weights to prune, shape (D_out, D_in)
+        :param n: number of neurons to prune within each block
+        :param m: block size
+        :return: pruned linear weights. Must satisfy N:M block sparsity.
+        """
         pass
 
     def prune_opt_agnostic(self, model: OPTForCausalLM, sparsity: str | float, pbar: bool) -> None:
@@ -322,18 +342,42 @@ class OptModelForwarder:
 class BaseActAwareUnstructuredPruner(BaseUnstructuredPruner):
     @abstractmethod
     def add_linear_activations(self, module_name: str, X: torch.Tensor) -> None:
+        """
+        Method for accumulating activation statistics, for example: covariance matrix.
+        :param module_name: unique module name to attach the activation statistics to.
+        :param X: input activations tensor. Shape (n_samples, seqlen, D_in).
+        """
         pass
 
     @abstractmethod
     def clear_linear_activations(self, module_name: str) -> None:
+        """
+        Method for clearing activation statistics.
+        :param module_name: module name which was passed when accumulating activation statistics.
+        """
         pass
 
     @abstractmethod
     def prune_linear_unstruct(self, W: torch.Tensor, module_name: str, k: int) -> torch.Tensor:
+        """
+        Base method for unstructured pruning
+        :param W: linear weights to prune, shape (D_out, D_in)
+        :param module_name: unique module name of the pruned model. Use this to retrieve activation statistics.
+        :param k: pruning number.
+        :return: pruned linear weights. Must have more or equal than k zero elements.
+        """
         pass
 
     @abstractmethod
     def prune_linear_nm(self, W: torch.Tensor, module_name: str, n: int, m: int) -> torch.Tensor:
+        """
+        Base method for N:M pruning
+        :param W: linear weights to prune, shape (D_out, D_in)
+        :param module_name: unique module name of the pruned model. Use this to retrieve activation statistics.
+        :param n: number of neurons to prune within each block
+        :param m: block size
+        :return: pruned linear weights. Must satisfy N:M block sparsity.
+        """
         pass
 
     def prune_opt(self, model: OPTForCausalLM, sparsity: str | float, calib_dataloader: DataLoader, pbar: bool) -> None:
